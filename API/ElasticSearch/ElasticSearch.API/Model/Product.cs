@@ -15,7 +15,7 @@ namespace ElasticSearch.API.Model
 
         public ProductDto? CreateProductDto()
         {
-            return Feature == null ? new ProductDto(Id,Name,Price,Stock,null) : new ProductDto(Id, Name, Price, Stock, new ProductFeatureDto(Feature.Width,Feature.Height,Feature.Color));
+            return Feature == null ? new ProductDto(Id,Name,Price,Stock,null) : new ProductDto(Id, Name, Price, Stock, new ProductFeatureDto(Feature.Width,Feature.Height,Feature.Color.ToString()));
         }
 
     }
