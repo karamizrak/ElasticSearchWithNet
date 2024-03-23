@@ -2,14 +2,14 @@
 
 namespace ElasticSearch.API.Dto
 {
-    public record ProductCreateDto(string Name, decimal Price, int Stock, ProductFeatureDto Feature)
+    public record ProductsCreateDto(string Name, decimal Price, int Stock, ProductFeaturesDto Feature)
     {
-        public Product CreateProduct()
+        public Products CreateProduct()
         {
-            return new Product
+            return new Products
             {
                 Name = Name, Price = Price, Stock = Stock,
-                Feature = new ProductFeature
+                Feature = new ProductFeatures
                     { Height = Feature.Height, Width = Feature.Width, Color = (EColor)int.Parse(Feature.Color)}
             };
         }

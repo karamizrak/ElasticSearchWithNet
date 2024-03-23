@@ -1,36 +1,37 @@
-﻿using ElasticSearch.API.Dto;
+﻿using Elastic.Clients.Elasticsearch;
+using ElasticSearch.API.Dto;
 using ElasticSearch.API.Model;
-using Nest;
+
 using System.Collections.Immutable;
 
 namespace ElasticSearch.API.Repositories
 {
-    public class ProductRepository
+    public class ProductsRepository
     {
-        private readonly ElasticClient _client;
-        private const string IndexName = "products11";
+        private readonly ElasticsearchClient _client;
+        private const string IndexName = "products";
 
-        public ProductRepository(ElasticClient client)
+        public ProductsRepository(ElasticsearchClient client)
         {
             _client = client;
         }
 
-        public async Task<Product?> SaveAsync(Product product)
+        public async Task<Products?> SaveAsync(Products product)
         {
             product.Created = DateTime.Now;
 
             var response = await _client.IndexAsync(product, x => x.Index(IndexName).Id(Guid.NewGuid().ToString()));
             //fast fail uygun değil ise hemen dönüş yap.
-            if (!response.IsValid)
+            if (!response.IsSuccess())
                 return null;
 
             product.Id = response.Id;
             return product;
         }
 
-        public async Task<ImmutableList<Product>> GetAllAsync()
+        public async Task<ImmutableList<Products>> GetAllAsync()
         {
-            var result=await _client.SearchAsync<Product>(s=>
+            var result=await _client.SearchAsync<Products>(s=>
                 s.Index(IndexName)
                     .Query(q=> 
                         q.MatchAll()
@@ -41,25 +42,25 @@ namespace ElasticSearch.API.Repositories
                 return result.Documents.ToImmutableList();
         }
 
-        public async Task<Product?> GetByIdAsync(string id)
+        public async Task<Products?> GetByIdAsync(string id)
         {
-            var result = await _client.GetAsync<Product>( id, s =>
+            var result = await _client.GetAsync<Products>( id, s =>
                 s.Index(IndexName));
-            if(!result.IsValid ) return null;
+            if(!result.IsSuccess() ) return null;
 
 
             result.Source.Id = result.Id;
             return result.Source;
         }
 
-        public async Task<bool> UpdateAsync(ProductUpdateDto dto)
+        public async Task<bool> UpdateAsync(ProductsUpdateDto dto)
         {
-            var result = await _client.UpdateAsync<Product, ProductUpdateDto>(dto.Id, x => x.Index(IndexName).Doc(dto));
-            return result.IsValid;
+            var result = await _client.UpdateAsync<Products, ProductsUpdateDto>(IndexName,dto.Id,x=>x.Doc(dto));
+            return result.IsSuccess();
         }
         public async Task<DeleteResponse> DeleteAsync(string id)
         {
-            var result = await _client.DeleteAsync<Product>(id , x => x.Index(IndexName));
+            var result = await _client.DeleteAsync<Products>(id , x => x.Index(IndexName));
             return result;
         }
     }

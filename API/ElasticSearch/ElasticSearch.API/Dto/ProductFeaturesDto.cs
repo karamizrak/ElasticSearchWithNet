@@ -2,7 +2,7 @@
 
 namespace ElasticSearch.API.Dto;
 
-public record ProductFeatureDto(int Width, int Height, string Color)
+public record ProductFeaturesDto(int Width, int Height, string Color)
 {
     
 }
