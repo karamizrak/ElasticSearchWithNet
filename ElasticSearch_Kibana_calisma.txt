@@ -1,0 +1,1027 @@
+GET _alias
+
+PUT categories/_doc/1
+{
+  "name":"cat1",
+  "description":""
+}
+
+GET products/_doc/1
+GET products/_source/1
+GET categories/_doc/1
+GET categories/_source/1
+
+GET _shard_stores
+GET _cat/shards
+
+PUT products/_create/1
+{
+    "name": "Iphone 14",
+    "rating": 8.5,
+    "published": true,
+    "category": "mobile phones",
+    "price": {
+      "usd": 2500,
+      "eur": 2000
+    }
+  }
+  
+POST categories/_doc
+{
+  "name":"cat2",
+  "description":""
+}
+
+GET categories/_doc/L7-gzY0BmGILM0zER6vS
+
+GET products/_settings
+
+//refresh_interval default değeri 1 saniyedir. memoriye alınan bilgi 1 saniye sonra segmentelere gönderilsin ve sorgulanabilir olsun.
+PUT products/_settings
+{
+  "index":{"refresh_interval":"5s"}
+}
+//?refresh=false default durum false dur. Sorgulanabilir olma durumunu elasticsearch kendisi belirler.
+//?refresh=true parametresi anlık hemen sorgulanabilir olması istenirse yazılır.
+//?refresh=wait_for "index":{"refresh_interval":"5s"} ile belirlenen süre sonra sorgulanabilir olur.  
+PUT products/_doc/20?refresh=true
+{
+    "name": "Samsung",
+    "rating": 8.5,
+    "published": true,
+    "category": "mobile phones",
+    "price": {
+      "usd": 2500,
+      "eur": 2000
+    }
+  
+}
+
+//UPDATE İŞLEMİ
+
+POST products/_update/1
+{
+  "doc":{
+    "name": "Nokia",
+    "rating": 10.5,
+    "published": true,
+    "category": "mobile phones",
+    "price": {
+      "usd": 15000,
+      "eur": 13000
+    }
+  }
+}
+
+GET products/_doc/1
+
+//DELETE İŞLEMİ
+
+DELETE products/_doc/99 //not found status code 404 döner
+
+DELETE products/_doc/3 //deleted
+
+
+//HEAD metot type ile verinin var olup olmadığını kontrol etme 200 veya  404 döner. performans için önemli tüm datayı dönmeden verlığını sorgulamak.
+
+HEAD products/_doc/1333
+
+//Birden fazla data nasıl alınır?
+
+//önce hangi datalar var onlara bakalım daha sonra detaylı anlatılacak. default da20 kayıt döner
+GET  products/_search
+{
+  "query":{"match_all": {}}
+}
+
+
+GET products/_mget/_source
+{
+  "ids":["1","2"]
+}
+
+GET _mget
+{
+  "docs":[
+    {
+      "_index":"products",
+      "_id":1
+    },
+    {
+      "_index":"categories",
+      "_id":1
+    }
+    ]
+}
+
+
+//Sadece meta data olmadan source u alabilmek
+
+GET products/_source/1
+
+//id ile alınan datanın tamamı değil belirli alanları almak
+
+GET products/_doc/1?_source_includes=name,rating,price
+GET products/_source/1?_source_includes=name,rating,price
+
+//id ile alınan datanın tamamı değil belirli alanları dışlayark almak
+
+GET products/_doc/1?_source_excludes=name,rating,price
+GET products/_source/1?_source_excludes=name,rating,price
+
+//Mapping
+//Schema (kaydedilmek istenen data tipleri) oluşturma süreci mapping olarak adlandırılır.
+//Dynamic Mapping
+
+PUT pens/_doc/2
+{
+  "name":"mavi kalem",
+  "price":39.8,
+  "created": "2010/05/05"
+}
+
+GET pens/_mapping
+
+//mavi -> text tipi olduğuiçin id si 2 olan mavi kalem verisine ulaşabiliriz. inverted tablolara yazılıyor.
+//kalem -> text tipi olduğuiçin id si 2 olan mavi kalem verisine ulaşabiliriz. inverted tablolara yazılıyor.
+//mavi kalem -> aynı zamanda keyword olduğu için id si 2 olan mavi kalem verisine ulaşabiliriz. inverted tablolara yazılıyor. 
+
+//eğer text olarak indexlenseydi inverted tablodan "mavi kalem" olarak arandığında bu veriyi alamazsın, keyword tam metin indexlenmesine yarıyor
+
+PUT pens2/_doc/1
+{
+  "name":"yeşil kalem",
+  "price":39.8,
+  "created": "30.12.205"
+}
+
+GET pens2/_mapping
+
+// Bu kaydın mappingine baktığında created alanı text ve keyword olarak ekledi çünkü default tarih formatında veri göndermedik. Bu olay arama kısmında büyüktür küçüktür arama yapmamıza engel olur. production a çıkmadan mappinglerin doğru oluştuğuna bakmak gerekiyor.
+
+PUT pens2/_doc/2
+{
+  "name":"yeşil kalem",
+  "price":39.8,
+  "created": "30.12.205",
+  "stocks":{
+    "turkey":100,
+    "german":50
+  }
+}
+
+GET pens2/_mapping
+// Bu kayıt için stok bilgisi turkey ve german alanları için long olarak ayarlamış ama o kadar alana ihtiyacın olmayabilir. ayrıca "stocks" alanını objcet tyipi olarak set etmiş flattened veya nested veya join da olabilir.
+
+
+
+ //Explicit Mapping
+ //Şemanın bizim tarafımızdan belirlenmesi işlemidir.
+
+PUT products
+{
+  "mappings": {
+    "properties": {
+      "name":{"type": "text"},
+      "price":{"type": "long"},
+      "stock_no":{"type": "keyword"},
+      "warehouse":{
+        
+        "properties": {
+          "germany":{"type":"integer"},
+          "turkey":{"type":"integer"}
+        }
+      }
+    }
+  }
+}
+
+GET products/_mapping
+
+PUT products/_doc/1
+{
+  "name":"kamel 1",
+  "price":38.5,
+  "stock_no":"abc12345",
+  "warehouse":{
+    "germany":10,
+    "turkey":12
+  }
+}
+
+GET products/_doc/1
+
+//Mevcut şemamıza yeni propertiler nasıl ekleriz? Var olan propertinin tipini değiştirmek önerilmeyen bir işlemdir tekrar reindex yapılması gerekir ama yeni ek özellikler eklenebilir.
+
+PUT products/_mapping
+{
+  "properties":{
+    "color":{"type":"keyword"}
+  }
+}
+
+GET products/_mapping
+
+//Mevcut alana yeni bir tip vermek istersen
+PUT products/_mapping
+{
+  "properties":{
+     "name": {
+        "type": "text",
+        "fields": {
+          "kwd": {
+            "type": "keyword"
+          }
+        }
+      }
+  }
+}
+
+GET products/_ mapping
+
+
+//Re-Indexing yapılması 
+//Bir mapping yaptın veriler kaydettin o şemada bir alanın tipini değiştiremezsin. buna izin vermez  ama bu alana yeni tip ekleyebilirsin.
+//Ama illaki tip değişikliği yapacaksan yeni bir mapping yapıp re-indexin yapmak zorundasın.
+
+GET products/_mapping
+
+//yeni bir mapping oluşturup verileri aktarıyoruz
+PUT products_new
+{
+  "mappings": {
+     "properties": {
+        "color": {
+          "type": "text"
+        },
+        "name": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "price": {
+          "type": "double"
+        },
+        "stock_no": {
+          "type": "keyword"
+        },
+        "warehouse": {
+          "properties": {
+            "germany": {
+              "type": "long"
+            },
+            "turkey": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+  }
+}
+
+GET products_new/_mapping
+
+POST /_reindex
+{
+  "source": {
+    "index": "products"
+  },
+  "dest": {
+    "index": "products_new"
+  }
+}
+// Term-level queriler
+//Structured data lar üzerinde yapılan aramalarda kullanılır. date boolean string keyword fiyat alanlarında arama yapar. Direk olarak bir ifade üzerinde arama yapılır. Score değeri üretmez direk verileri getirir. Analiz süreci yoktur. tokenization ve normalization işlemi yapılmaz. Önerk; Numbers, Dates, IP, Keywords types( SGKno, tc no vs). 
+
+//search yaparken büyük küçük harf duyarlılığını kaldırmak için "case_insensitive":true yaparsan ona göre arar.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "term": {
+      "customer_first_name.keyword": {
+        "value": "sonya",
+        "case_insensitive":true
+      }
+    }
+  }
+}
+//Term-level querylerde bizden fazla alana göre arama yapamıyoruz. Başka tekniklerle bu arama gerçekleştirilir.(compound)
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "terms": {
+      "customer_last_name.keyword": [
+        "Gross",
+        "Perkins",
+        "Henderson"
+      ]
+    }
+  }
+}
+//Bir alanda birden fazla değere göre arama yapmak istersek yukardaki gibi 'terms' ile yapabiliriz. 
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "ids": {"values": ["sLwvyI0BmPglztt05vhY","O7wvyI0BmPglztt05vlY","PbwvyI0BmPglztt05vlY"]}
+  }
+}
+//term level query olmasına rağmen term ifadesi kullanılmıyor. özel bir arama tekniğidir.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "exists": {
+      "field": "order_id"
+    }
+  }
+}
+//bir alanın dokuman içinde varmı yokmu kontorl etmek için kullanılır. 
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "prefix": {
+      "customer_first_name": {
+        "value": "Abd",
+        "case_insensitive":true 
+      }
+    }
+  }
+}
+//prefix vererek arama yapılabilir, bu kısım start with gibi düşünülebilir.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "range": {
+      "taxless_total_price": {
+        "gte": 33.98,
+        "lte": 40
+      }
+    }
+  }
+}
+//belli bir aralığa düşen verileri getirir. verilecek parametreler : gt=greater than, gte=greater then or equal, lt=less then, lte=less then or equal. örnekte 33.98den büyük eşit ve 40dan küçük eşit olanları getir.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "wildcard": {
+      "customer_first_name": {
+        "value": "Abdu*",
+        "case_insensitive":true 
+      }
+    }
+  }
+}
+
+//aranan değer başta,ortada veya sonda olabilir. wildcard ile değer herhangi bir yerde olanları getirir. prefix gibi başta olması gerekmez. Burada * multiple characters - ? single character yerine kullanılır.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "fuzzy": {
+      "customer_first_name.keyword": {
+        "value": "tephanie", //Stephanie,
+      "fuzziness": 2
+        
+      }
+    }
+  }
+}
+//Fuzzy Query aranan değerde harf hatası yapılsa bile yinede verileri getirir. did you mean gibi
+//fuzziness değeri aranan değer lengthi 0-2 arasında ise fuzziness 0, 3-5 arasında ise  1, 5 ve üsti ise 2 oalrak ayarlıyor. fuzziness harf hatasını tolere edilecek harf sayısıdır.
+//Ör. aranan cake getirilen veriler take, bake, lake, make, nake gibi çalışır.
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "size": 3,
+  "from": 3, 
+  "query": {
+    "fuzzy": {
+      "customer_first_name.keyword": {
+        "value": "tephanie", //Stephanie,
+      "fuzziness": 2
+        
+      }
+    }
+  }
+}
+
+// Pagination= size: tek bir sorguda kaç kayıt alınmak istendiği default 10dur, from: atlanacak kayıt sayısı default 0 dır. Yukardaki sorgu sonucunda her sorguda 3 kayıt getirir. from 3 dersen 3 kayıt atlar.
+
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": {
+    "includes": ["category","customer_first_name","customer_last_name","currency"]
+    
+  }, 
+  "size": 3,
+  "from": 0, 
+  "query": {
+    "fuzzy": {
+      "customer_first_name.keyword": {
+        "value": "tephanie", //Stephanie,
+      "fuzziness": 2
+        
+      }
+    }
+  }
+}
+//Includes
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": {
+    "excludes": ["category","customer_first_name","customer_last_name","currency"]
+    
+  }, 
+  "size": 3,
+  "from": 0, 
+  "query": {
+    "fuzzy": {
+      "customer_first_name.keyword": {
+        "value": "tephanie", //Stephanie,
+      "fuzziness": 2
+        
+      }
+    }
+  }
+}
+//Excludes
+
+//Response şekillendirme(include, exclude) ihtiyacına uygun olanları almak için kullanılır.
+
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "size": 100,
+  "from": 3, 
+  "query": {
+    "fuzzy": {
+      "customer_first_name": {
+        "value": "tephanie", //Stephanie,
+      "fuzziness": 2
+        
+      }
+    }
+  },
+  "sort": [
+    {
+      "taxful_total_price": {
+        "order": "desc"
+      },
+      "customer_first_name.keyword": {
+        "order": "asc"
+      }
+      
+    }
+  ]
+}
+
+//Sort query= Gelen kayıtları sort parametresi ile sıralayabilirsin. term level querylerde kullanmak lazım full text search yaparken kullanılmaması uygundur. Çünkü full text search querylerde kullanıcının yaptığı arama ile bir score değeri üretilir bu score değeri en yüksekten sıralanır, birde sen sort yaparsan sıra bozulur. full text search en alakalı sonuctan en alakasıza doğru sıralama yapar sort yaparsan bu bozulur.
+
+//Full text Queries 
+// Unstructure datalar üzerinde sorgulamamıza yarayan query tipidir.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query":{
+    "match": {
+      "category": "women's"
+    }
+  }
+}
+
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query":{
+    "match": {
+      "customer_full_name": "Pia Miller"
+    }
+  }
+}
+//aranan kelime birden fazla ise her kelime parçalara ayrılması için analiz sürecinden geçiriliyor ve her kelime ayrı ayrı aranıp içerisinde aranan kelime geçen kayıtları getiriyor. Bunlar score a göre sıralanyor. Or işlemi yapar.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query":{
+    "match": {
+      "customer_full_name":{
+        "query": "Pia Miller",
+        "operator": "and"
+      }
+      
+    }
+  }
+}
+// tam bir arama yapmak isteniyorsa "and" operatör eklemek gerkiyor. her kelime için and işlemi yapar.
+//inverted tablelarda analiz sürecinden geçirilmiş tam kelimeler aranmak zorundadır 1 harf eksik olsa veri gelmez.
+
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query":{
+    "match": {
+      "customer_full_name":{
+        "query": "Pia Mil",
+        "operator": "and",
+        "fuzziness" : 2 //bulanık veriler getirebilir. "fuzziness" : "auto" en optimize değeri üretir.
+      }
+      
+    }
+  }
+}
+// Fuzzy search ile kullanabiliriz. eksik harf sayısı vererek arama yapabiliriz.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query":{
+    "multi_match": {
+      "query": "gwen",
+      "fields": ["customer_first_name","customer_full_name","customer_last_name"]
+    }
+  }
+}
+
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "query":{
+    "multi_match": {
+      "query": "Gwen Butl",
+      "fields": ["customer_first_name","customer_full_name","customer_last_name"],
+      "operator": "and",
+      "fuzziness" : 2 //bulanık veriler getirebilir. "fuzziness" : "auto" en optimize değeri üretir.
+    }
+  }
+}
+
+//Yine tam bir arama yapmak istersek "and" operatörü eklediğimizde aranan kelime tam olarak ele alınarak sorgulama işlemi yapar. yine istersek fuzziness değeri belirleyebiliriz.
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "size": 200, 
+ "query": {
+   "match": {
+     "customer_full_name": "Sultan Al Moran"
+   }
+ } 
+}
+//Match  Query
+//Sıralama önemli değil, aranan kelime öbeğindeki her kelime ayrı ayrı ele alınarak arama yapılır.
+//Sultan Al Moran, Betty Moran, Rabbia Al Perkins
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "size": 200, 
+ "query": {
+   "match_phrase": {
+     "customer_full_name": "Sultan Al Moran"
+   }
+ } 
+}
+//Match Phrase Query
+//Sıralama önemli, aranan kelime öbeğindeki her kelime ayrı ayrı ele alınarak arama yapılır.
+//Sultan Al Moran
+
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "size":200,
+  "query":{
+    "match_bool_prefix": {
+      "customer_full_name": "Sul Al M"
+    }
+  }
+}
+//Match boolean query
+//Sondaki kelime prefix olarak algılanır ve her kelime için or yaparak getirir. 
+//Arama şekli: Sultan or Al or M.....
+//Sultan Al Marshall, Rabbia Al Massey, Abdulraheem Al Marshall, Rabbia Al Baker vs.
+
+
+POST kibana_sample_data_ecommerce/_search
+{
+  "size":200,
+  "query":{
+    "match_phrase_prefix": {
+      "customer_full_name": "Sultan Al M"
+    }
+  }
+}
+
+//Match Phrase Prefix Query
+// match bool query gibi çalışır fakat sıralamya dikkat ederek getirir.
+
+//COMPOUND QUERY
+/*
+must      : must içinde yazılan kriteri kesinlikle içerenleri getirir. Score değerine katkı sağlar.
+filter    : filter içinde yazılan kriteri kesinlikle içerenleri getirir. Score değerine katkı sağlamaz.
+should    :Or gibi davranır. aranan değer varsa score değerine katkı sağlar. (olsa iyi olur)
+must_not  : olması istenmeyen kayıtlar belirtilir. istenmediği için score ile ilgili bir işlevi yoktur.
+
+Yukardaki parametrelerle istediğimiz sorguları yazabiliyoruz.
+*/
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "query": {
+    "bool": {
+      
+      "must": [
+        {
+          "term": {
+            "geoip.city_name":
+            {
+              "value": "New York" //city name new york olanlar kesin olacak
+            }
+          }  
+        }
+      ],
+      "must_not": [  // range kriteri kesin olmayacak
+        {
+          "range": { //aralık verebilirdik ama less then şimdilik yeterli istersek "gte" de verebilirdim. 100 den küçük OLMASIN veya must içerisine gte:100.00 de yazabilirdik vs.
+            "taxful_total_price": {
+              "lte": 100.00
+            }
+          }
+        }
+      ],
+      "should": [ // Or gibi çalışır olsada olur olmasada olur ama olursa score değerine katkısı olur.
+        {
+          "term": {
+            "category.keyword": { // category.keyword üzerinden gidiyorum çünkü category dersek full-text query gibi davranır, naliz sürecinden geçmiş verilerde arama yapar, bu da perfomransı etkiler.,
+              "value": "Women's Clothing"
+            }
+          }
+        }
+      ],
+      "filter": [ // OLMAK ZORUNDA ama score değerine bir katkısı olmayacak.
+        {
+          "term": {
+            "manufacturer.keyword": "Tigress Enterprises"
+          }
+        }
+      ]
+    }
+  }
+}
+
+//Example 2
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "size": 200, 
+  "query": {
+    "bool": {
+      
+      "must": [
+        /*{
+          "match": {
+            "customer_full_name": "Brigitte"
+          }
+        },*/
+        {
+          "term": {
+            "customer_gender": {
+              "value": "FEMALE"
+            }
+          }
+        }
+      ],
+      "must_not": [  // range kriteri kesin olmayacak
+        {
+          "range": { //aralık verebilirdik ama less then şimdilik yeterli istersek "gte" de verebilirdim. 100 den küçük OLMASIN veya must içerisine gte:100.00 de yazabilirdik vs.
+            "taxful_total_price": {
+              "lte": 100.00
+            }
+          }
+          
+        }
+      ],
+      "should": [ // Or gibi çalışır olsada olur olmasada olur ama olursa score değerine katkısı olur.
+        {
+          "term": {
+            "category.keyword": { // category.keyword üzerinden gidiyorum çünkü category dersek full-text query gibi davranır, naliz sürecinden geçmiş verilerde arama yapar, bu da perfomransı etkiler.,
+              "value": "Women's Clothing"
+            }
+          }
+          
+        }
+        ,
+        {
+          "match": {
+            "geoip.continent_name": "Africa"
+          }
+        }
+      ],
+      "filter": [ // OLMAK ZORUNDA ama score değerine bir katkısı olmayacak.
+        {
+          "term": {
+            "manufacturer.keyword": "Tigress Enterprises"
+          }
+        }
+      ]
+    }
+  }
+}
+
+//Aggregations sorgular (sql deki count, min, max, sum vs)
+/* 1 - Bucket aggregations
+  Group by gibi düşünülebilir.
+   2 - Metric Aggregations
+  Toplamını bulma, ortalama alma, min max bulma gibi fonksiyonları sağlayan query tipleridir.
+*/
+
+
+/*BUCKET AGGREGATION
+Yapılan sorgunun tipine göre, şartın sağlanmasına göre elastic search bunları ayrı ayrı küp kova yani bucketlara koyuyor. Ör. şu isimdeki categorileri sırala? Category=kadın giyim olandan kaç tane var, Category=erkek giyim olandan kaç tane var gibi sıralama istendiğinde bucket aggregation query yapmış oluyoruz.
+*/
+GET kibana_sample_data_ecommerce/_search
+{
+  "aggs": {
+    "Kategori_adlari": {
+      "terms": {
+        "field": "category.keyword"
+      }
+    }
+  }
+}
+//Yukardaki sorgu sonucunda hits içerisinde data geliyor fakat al kısımda aggregations koleksiyonu içerisinde her kategoriye ait bizim belirlediğimiz "kategori_adlari" altında hem isimler (key olarak) hemde sayısını (doc_count olarak) kovalara (bucket) bölerek getiriyor. 
+/*
+  "aggregations": {
+    "Kategori_adlari": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        {
+          "key": "Men's Clothing",
+          "doc_count": 2024
+        },
+        {
+          "key": "Women's Clothing",
+          "doc_count": 1903
+        },
+        {
+          "key": "Women's Shoes",
+          "doc_count": 1136
+        },
+        {
+          "key": "Men's Shoes",
+          "doc_count": 944
+        },
+        {
+          "key": "Women's Accessories",
+          "doc_count": 830
+        },
+        {
+          "key": "Men's Accessories",
+          "doc_count": 572
+        }
+      ]
+    }
+  }
+  */
+  
+  //Mesela source ile yani veri ile işimiz yok o zaman "_source": false parametresi ile sadece aggregations lara daha rahat erişebiliriz.
+  
+  GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "aggs": {
+    "Kategori_adlari": {
+      "terms": {
+        "field": "geoip.continent_name",
+        "size": 1000, // kullanabiliriz, mesela sayfalama yapmak gereken yerlerde size ile yapabiliriz.,
+        "order": {   // sıralama yapmak istersek order işlemi yapabiliriz.
+          "_key": "asc" //_key olanları yani bu veri setinde Africa, Asia, vs sıralama yapar. count değerine göre sıralama yapmak istersek _count verebiliriz.
+        }
+      }
+    }
+  }
+}
+//SQL tarafında bire bir group by yapmış gibi oluyoruz. 
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "aggs": {
+    "Kategori_Fiyat_araliklari": {
+      
+      "range": {
+        "field": "taxful_total_price",
+        "ranges": [
+          
+            {"to":10.00},
+            {"from": 10.00, "to": 100.00},
+            {"from": 100}
+          
+        ]
+      }
+     
+    }
+  }
+}
+
+// Aralık vererek kaç adet kayıt olduğuna ulaştık.
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "query": {
+    "term": {
+      "category.keyword": {
+        "value": "Men's Clothing"
+      }
+    }
+  }, 
+  "aggs": {
+    "Kategori_Fiyat_araliklari": {
+      
+      "range": {
+        "field": "taxful_total_price",
+        "ranges": [
+          
+            {"to":10.00},
+            {"from": 10.00, "to": 100.00},
+            {"from": 100}
+          
+        ]
+      }
+     
+    }
+  }
+}
+
+//Yine aralık veriyoruz ama öncesinde bir filtre uyugulayıp category=Men's Clothing olanlar içinde fiyatları belirlediğimiz aralıkların kayıt sayılarını aldık.
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "aggs": {
+    "Kategori_Fiyat_araliklari": {
+      
+      "range": {
+        "field": "taxful_total_price",
+        "ranges": [
+          {
+            "from": 10.00,
+            "to": 50
+          }
+        ]
+      }
+     
+    }
+  }
+}
+
+// 2- METRIC AGGRIGATION
+//Ortalamayı bulma, en büyük olanı bulma, en küçük olanı bulma vs. özellikle sayısal veriler üzerinde hesaplama yapma gereği hissedilen sorgulamalar yapar.
+
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+ "aggs": {
+   "FiyatOrtalamalari": {
+     "avg": {
+       "field": "taxful_total_price"
+     }
+   }
+ } 
+}
+//Ortalama alma
+/*
+ "aggregations": {
+    "FiyatOrtalamalari": {
+      "value": 75.05542864304813
+    }
+  }
+*/
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "query": {
+    "term": {
+      "category.keyword": {
+        "value": "Men's Clothing"
+      }
+    }
+  }, 
+ "aggs": {
+   "FiyatOrtalamalari": {
+     "avg": {
+       "field": "taxful_total_price"
+     }
+   }
+ } 
+}
+//Yine ortalama aldık fakat bu sefer bir query ile filtre uyguladık category=Men's Clothing olanların ortalama fiyat bilgisine ulaştık.
+/*
+  "aggregations": {
+    "FiyatOrtalamalari": {
+      "value": 73.81122043292984
+    }
+  }
+*/
+
+//SUM / MAX / MIN AGGREGATIONS
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "query": {
+    "term": {
+      "category.keyword": {
+        "value": "Men's Clothing"
+      }
+    }
+  }, 
+ "aggs": {
+   "ToplamFiyatlar": {
+     "sum": {
+       "field": "taxful_total_price"
+     }
+   }
+ } 
+}
+//Toplam fiyat nedir?
+/*
+  "aggregations": {
+    "FiyatOrtalamalari": {
+      "value": 149393.91015625
+    }
+  }
+*/
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "query": {
+    "term": {
+      "category.keyword": {
+        "value": "Men's Clothing"
+      }
+    }
+  }, 
+ "aggs": {
+   "EnYuksekFiyat": {
+     "max": {
+       "field": "taxful_total_price"
+     }
+   }
+ } 
+}
+//En yüksek fiyat nedir?
+/*
+"aggregations": {
+    "FiyatOrtalamalari": {
+      "value": 2250
+    }
+  }
+*/
+
+GET kibana_sample_data_ecommerce/_search
+{
+  "_source": false, 
+  "query": {
+    "term": {
+      "category.keyword": {
+        "value": "Men's Clothing"
+      }
+    }
+  }, 
+ "aggs": {
+   "EnDusukFiyat": {
+     "min": {
+       "field": "taxful_total_price"
+     }
+   }
+ } 
+}
+//En düşük fiyat nedir?
+/*
+"aggregations": {
+    "FiyatOrtalamalari": {
+      "value": 6.98828125
+    }
+  }
+*/
+
+  
+
+
+
+
+
+
